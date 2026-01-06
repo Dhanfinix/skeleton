@@ -1,49 +1,74 @@
-import java.io.FileInputStream
-import java.util.Properties
-
 plugins {
     id("maven-publish")
+    id("signing")
+    alias(libs.plugins.vanniktech)
 }
 
+// 1. Tell the plugin we are doing a "manual" publication
+// We don't use 'mavenPublishing' for the logic because it expects a component
+// instead we use the standard 'publishing' block and Vanniktech's signing helper.
 
-configurations.maybeCreate("default")
+publishing {
+    publications {
+        register<MavenPublication>("maven") {
+            groupId = "io.github.dhanfinix"
+            artifactId = "skeleton"
+            version = "1.0.0"
 
-artifacts {
-    add("default", file("skeleton.aar"))
-}
+            // 2. Point to your AAR file
+            // Make sure the path is correct relative to this build.gradle
+            artifact(file("skeleton.aar"))
 
-val githubProperties = Properties()
-val secretFile = rootProject.file("github.properties")
-
-if (secretFile.exists()) {
-    githubProperties.load(FileInputStream(secretFile))
-}
-
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("bar") {
-                artifact(file("skeleton.aar")) {
-                    extension = "aar"
+            pom {
+                name.set("Skeleton")
+                description.set("Republished version of unmaintained ethanhua skeleton library")
+                url.set("https://github.com/Dhanfinix/skeleton/")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
                 }
-
-                groupId = "dhanfinix.republish"
-                artifactId = "skeleton"
-                version = "1.0.0"
+                developers {
+                    developer {
+                        id.set("dhanfinix")
+                        name.set("Ramdhan")
+                        email.set("muhammadramdhan541@gmail.com")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:github.com/Dhanfinix/skeleton.git")
+                    developerConnection.set("scm:git:ssh://github.com/Dhanfinix/skeleton.git")
+                    url.set("https://github.com/Dhanfinix/skeleton/")
+                }
             }
         }
+    }
+}
 
-        repositories {
-            maven {
-                name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/Dhanfinix/skeleton")
+// 3. Configure where to publish (Maven Central)
+mavenPublishing {
+    // This helper still sets up the Central Portal credentials/host for you
+    publishToMavenCentral(automaticRelease = true)
 
-                credentials {
-                    // Assuming 'githubProperties' is a Map or Properties object defined earlier
-                    username = githubProperties["USER_ID"]?.toString() ?: System.getenv("USER_ID")
-                    password = githubProperties["ACCESS_TOKEN"]?.toString() ?: System.getenv("ACCESS_TOKEN")
-                }
-            }
+    // This signs whatever publications we just registered above
+    signAllPublications()
+}
+
+val emptyJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources") // One for sources
+}
+
+val emptyJavadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc") // One for javadoc
+}
+
+// Update the publication block above to include these:
+publishing {
+    publications {
+        named<MavenPublication>("maven") {
+            artifact(emptyJar)
+            artifact(emptyJavadocJar)
         }
     }
 }
